@@ -4,7 +4,6 @@ import javax.swing.SwingUtilities;
 
 public class Main {
     public static void main(String[] args) {
-        // Start the Server in a separate thread
         Thread serverThread = new Thread(() -> {
             try {
                 ServerSocket serverSocket = new ServerSocket(6001);
@@ -21,10 +20,9 @@ public class Main {
             }
         });
 
-        // Start the Server thread
+
         serverThread.start();
 
-        // Start the CreateUser UI on the main thread
         SwingUtilities.invokeLater(() -> {
             CreateUser createUser = new CreateUser();
             createUser.setVisible(true);

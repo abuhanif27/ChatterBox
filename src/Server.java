@@ -1,7 +1,10 @@
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
+import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.Collections;
+import java.util.List;
 import java.util.Vector;
 
 public class Server implements Runnable {
@@ -39,24 +42,18 @@ public class Server implements Runnable {
             clients.add(dataOutputStream);
 
             while (true) {
-                // Read message type
                 String messageType = dataInputStream.readUTF();
 
-                if (messageType.equals("FILE")) {
-                    // Handle file transfer
-                    String fileName = dataInputStream.readUTF();
-                    long fileSize = dataInputStream.readLong();
-                    byte[] fileData = new byte[(int) fileSize];
-                    dataInputStream.readFully(fileData);
-
-                    // Broadcast file to all clients
-                    broadcastToClients("FILE", fileName, fileSize, fileData);
-                } else if (messageType.equals("MESSAGE")) {
-                    // Handle text message
-                    String msgInput = dataInputStream.readUTF();
-                    System.out.println("received " + msgInput);
-
-                    broadcastToClients("MESSAGE", msgInput, 0, null);
+                switch (messageType) {
+                    case "HISTORY_REQUEST":
+                        handleHistoryRequest();
+                        break;
+                    case "FILE":
+                        handleFileMessage();
+                        break;
+                    case "MESSAGE":
+                        handleTextMessage();
+                        break;
                 }
             }
         } catch (Exception e) {
@@ -64,6 +61,43 @@ public class Server implements Runnable {
         } finally {
             removeClient();
         }
+    }
+
+    private void handleHistoryRequest() throws IOException {
+        int requestedMessages = dataInputStream.readInt();
+        List<DatabaseHelper.MessageData> messages = DatabaseHelper.retrieveMessages(requestedMessages);
+        Collections.reverse(messages); // Reverse to show oldest first
+
+        dataOutputStream.writeUTF("HISTORY");
+        dataOutputStream.writeInt(messages.size());
+
+        for (DatabaseHelper.MessageData msg : messages) {
+            if (msg.fileName != null) {
+                dataOutputStream.writeUTF("FILE");
+                dataOutputStream.writeUTF(msg.fileName);
+                dataOutputStream.writeUTF(msg.name);
+            } else {
+                dataOutputStream.writeUTF("MESSAGE");
+                String formattedMessage = "<b style=\"color:white;\"><u>" + msg.name + ":</u></b><br>" + msg.message;
+                dataOutputStream.writeUTF(formattedMessage);
+            }
+        }
+        dataOutputStream.flush();
+    }
+
+    private void handleFileMessage() throws IOException {
+        String fileName = dataInputStream.readUTF();
+        long fileSize = dataInputStream.readLong();
+        byte[] fileData = new byte[(int) fileSize];
+        dataInputStream.readFully(fileData);
+
+        broadcastToClients("FILE", fileName, fileSize, fileData);
+    }
+
+    private void handleTextMessage() throws IOException {
+        String msgInput = dataInputStream.readUTF();
+        System.out.println("received " + msgInput);
+        broadcastToClients("MESSAGE", msgInput, 0, null);
     }
 
     private void broadcastToClients(String messageType, String content, long fileSize, byte[] fileData) {

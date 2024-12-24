@@ -147,8 +147,14 @@ public class Client implements ActionListener, Runnable {
             socket = new Socket(serverAddress, serverPort);
             dataInputStream = new DataInputStream(socket.getInputStream());
             dataOutputStream = new DataOutputStream(socket.getOutputStream());
+
+            // Request message history
+            dataOutputStream.writeUTF("HISTORY_REQUEST");
+            dataOutputStream.writeInt(50); // Request last 50 messages
+
             Thread thread = new Thread(this);
             thread.start();
+
         } catch (IOException e) {
             e.printStackTrace();
             JOptionPane.showMessageDialog(frame, "Could not connect to server: " + e.getMessage());
@@ -286,15 +292,21 @@ public class Client implements ActionListener, Runnable {
             while (true) {
                 String messageType = dataInputStream.readUTF();
 
-                if (messageType.equals("FILE")) {
-                    String fileName = dataInputStream.readUTF();
-                    long fileSize = dataInputStream.readLong();
-                    receiveFile(fileName, fileSize);
-                } else if (messageType.equals("MESSAGE")) {
-                    String message = dataInputStream.readUTF();
-                    if (!isOwnMessage(message)) {
-                        displayMessage(message, false);
-                    }
+                switch (messageType) {
+                    case "HISTORY":
+                        handleMessageHistory();
+                        break;
+                    case "FILE":
+                        String fileName = dataInputStream.readUTF();
+                        long fileSize = dataInputStream.readLong();
+                        receiveFile(fileName, fileSize);
+                        break;
+                    case "MESSAGE":
+                        String message = dataInputStream.readUTF();
+                        if (!isOwnMessage(message)) {
+                            displayMessage(message, false);
+                        }
+                        break;
                 }
             }
         } catch (IOException e) {
@@ -306,6 +318,21 @@ public class Client implements ActionListener, Runnable {
                 }
             } catch (IOException e) {
                 e.printStackTrace();
+            }
+        }
+    }
+
+    private void handleMessageHistory() throws IOException {
+        int messageCount = dataInputStream.readInt();
+        for (int i = 0; i < messageCount; i++) {
+            String messageType = dataInputStream.readUTF();
+            if (messageType.equals("FILE")) {
+                String fileName = dataInputStream.readUTF();
+                String sender = dataInputStream.readUTF();
+                displayMessage("<b>" + sender + "</b> sent a file: " + fileName, false);
+            } else {
+                String message = dataInputStream.readUTF();
+                displayMessage(message, isOwnMessage(message));
             }
         }
     }
