@@ -4,6 +4,7 @@ import java.awt.*;
 import java.awt.event.*;
 import java.io.*;
 import java.net.Socket;
+import java.nio.file.Files;
 
 public class Client implements ActionListener, Runnable {
     private final String serverAddress;
@@ -174,6 +175,10 @@ public class Client implements ActionListener, Runnable {
                 dataOutputStream.flush();
                 fis.close();
 
+                // Save the file message to the database
+                byte[] fileData = Files.readAllBytes(selectedFile.toPath());
+                DatabaseHelper.saveMessage(username, null, selectedFile.getName(), fileData);
+
                 // Display file sent message
                 displayMessage("<b>" + username + "</b> sent a file: " + selectedFile.getName(), true);
             } catch (IOException e) {
@@ -182,6 +187,7 @@ public class Client implements ActionListener, Runnable {
             }
         }
     }
+
 
     private void receiveFile(String fileName, long fileSize) {
         try {
@@ -224,6 +230,10 @@ public class Client implements ActionListener, Runnable {
                     String formattedMessage = "<b style=\"color:white;\"><u>" + username + ":</u></b><br>" + message;
                     dataOutputStream.writeUTF(formattedMessage);
                     displayMessage(formattedMessage, true);
+
+                    // Save the message to the database
+                    DatabaseHelper.saveMessage(username, message, null, null); // No file sent, so file is null
+
                     msgField.setText("");
                 }
             } catch (IOException e) {
